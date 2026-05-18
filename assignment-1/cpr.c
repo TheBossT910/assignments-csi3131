@@ -19,9 +19,16 @@ Explanation of the zombie process
 
 	(please complete this part);
 
+	// Answer
+	Zombie = process is hanging, i.e. it is waiting for an operation to complete, but it is not completing,
+	resulting in the program being in this Zombie state???
+
 ------------------------------------------------------------- */
 #include <stdio.h>
 #include <sys/select.h>
+// added libraries
+#include <sys/types.h>
+#include "unistd.h"
 
 /* Prototype */
 void createChildAndRead (int);
@@ -69,10 +76,67 @@ Description:
 
 void createChildAndRead(int prcNum)
 {
+	// Learned from video: https://www.youtube.com/watch?v=EYI7wsAdWWo
 
- /* Please complete this function according to the
-Assignment instructions. */
+	// DEBUG
+	fprintf(stderr, "prcNum is (start) %i \n", prcNum);
+
+	// create pipe
+	// [0] = read, [1] = write
+	int std_pipe[2];
+	pipe(std_pipe);
+
+	// create a child process
+	int pid = fork();
+
+	if (!pid)	// child process
+	{
+		// exit when prcNum <= 0
+		if (prcNum <= 0)
+		{
+			return;
+		}
+
+		// attach writing end of pipe, std_pipe[1], to standard output of child, 1
+		dup2(std_pipe[1], 1);
+
+		// TODO: figure out why this isn't writing to pipe...
+		fprintf(stdout, "\nProcess - %i", prcNum);
+
+		// close both read/write ends of the pipe
+		close(std_pipe[0]);
+		close(std_pipe[1]);
+
+		// execute next recursive call
+		int newPrcNum = prcNum - 1;
+		char val_str[12];
+		snprintf(val_str, sizeof(val_str), "%i", newPrcNum);
+
+		char *args[] = {"./cpr", val_str, NULL};
+		execvp(args[0], args);
+	}
+
+	// close writing end of the pipe
+	close(std_pipe[1]);
+
+	// reading the pipe
+	char buffer[100];
+	int n = read(std_pipe[0], buffer, 99);
+	buffer[n] = 0;
+	fprintf(stderr, "PIPE OUTPUT: %s\n", buffer);
 }
 
 
+/* Example output so far
+taharashid@Tahas-MacBook-Pro assignment-1 % make cpr && ./cpr 3
+cc     cpr.c   -o cpr
+prcNum is (start) 3 
+prcNum is (start) 2 
+prcNum is (start) 1 
+prcNum is (start) 0 
+PIPE OUTPUT: 
+PIPE OUTPUT: 
+PIPE OUTPUT: 
+PIPE OUTPUT: 
+*/
 
