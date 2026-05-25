@@ -19,9 +19,9 @@ Explanation of the zombie process
 
 	(please complete this part);
 
-	// Answer
-	Zombie = process is hanging, i.e. it is waiting for an operation to complete, but it is not completing,
-	resulting in the program being in this Zombie state???
+	// Answer (TODO: fix!)
+	Zombie = process is hanging, i.e. a process is waiting for an operation to complete, but that operation is not completing/saying its complete,
+	resulting in the program being in this zombie state and using resources
 
 ------------------------------------------------------------- */
 #include <stdio.h>
@@ -76,67 +76,70 @@ Description:
 
 void createChildAndRead(int prcNum)
 {
-	// Learned from video: https://www.youtube.com/watch?v=EYI7wsAdWWo
+    printf("Process %i begins\n", prcNum);
+    fflush(stdout);
 
-	// DEBUG
-	fprintf(stderr, "prcNum is (start) %i \n", prcNum);
+    // base case
+    if (prcNum == 1)
+    {
+        sleep(5);
+        printf("Process 1 ends\n");
+        fflush(stdout);
+        // sleep(10);
+        return;
+    }
 
-	// create pipe
-	// [0] = read, [1] = write
-	int std_pipe[2];
-	pipe(std_pipe);
+    // make pipe, [0] = stdin, [1] = stdout */
+    int std_pipe[2];
+    if (pipe(std_pipe) == -1)
+    {
+        fprintf(stderr, "pipe() failed\n");
+        return;
+    }
 
-	// create a child process
-	int pid = fork();
+	// make child
+    int pid = fork();
 
-	if (!pid)	// child process
-	{
-		// exit when prcNum <= 0
-		if (prcNum <= 0)
-		{
-			return;
-		}
-
+	// fork failed
+    if (pid == -1)
+    {
+        fprintf(stderr, "fork() failed\n");
+        return;
+    }
+	// is child process
+    else if (pid == 0)
+    {
 		// attach writing end of pipe, std_pipe[1], to standard output of child, 1
-		dup2(std_pipe[1], 1);
+        dup2(std_pipe[1], 1);
 
-		// TODO: figure out why this isn't writing to pipe...
-		fprintf(stdout, "\nProcess - %i", prcNum);
+		// close the original (parent's) read/write ends
+        close(std_pipe[0]);
+        close(std_pipe[1]);
 
-		// close both read/write ends of the pipe
-		close(std_pipe[0]);
-		close(std_pipe[1]);
+        // execute next recursive call (NOTE: img replaces the child)
+        char val_str[12];
+        snprintf(val_str, sizeof(val_str), "%i", prcNum - 1);
+        char *args[] = {"./cpr", val_str, NULL};
+        execvp(args[0], args);
+    }
+	// is parent process
+    else
+    {
+        // close write end of the pipe
+        close(std_pipe[1]);
 
-		// execute next recursive call
-		int newPrcNum = prcNum - 1;
-		char val_str[12];
-		snprintf(val_str, sizeof(val_str), "%i", newPrcNum);
+        // read and print the "read" end of the pipe (to get the children process' data)
+        char buffer[256];
+        int n;
+        while ((n = read(std_pipe[0], buffer, sizeof(buffer))) > 0)
+        {
+            write(1, buffer, n);
+        }
 
-		char *args[] = {"./cpr", val_str, NULL};
-		execvp(args[0], args);
-	}
+		// close read end of pipe
+        close(std_pipe[0]);
 
-	// close writing end of the pipe
-	close(std_pipe[1]);
-
-	// reading the pipe
-	char buffer[100];
-	int n = read(std_pipe[0], buffer, 99);
-	buffer[n] = 0;
-	fprintf(stderr, "PIPE OUTPUT: %s\n", buffer);
+        printf("Process %d ends\n", prcNum);
+        fflush(stdout);
+    }
 }
-
-
-/* Example output so far
-taharashid@Tahas-MacBook-Pro assignment-1 % make cpr && ./cpr 3
-cc     cpr.c   -o cpr
-prcNum is (start) 3 
-prcNum is (start) 2 
-prcNum is (start) 1 
-prcNum is (start) 0 
-PIPE OUTPUT: 
-PIPE OUTPUT: 
-PIPE OUTPUT: 
-PIPE OUTPUT: 
-*/
-
