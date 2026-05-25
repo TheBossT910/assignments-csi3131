@@ -7,7 +7,7 @@ Student number: 300403833
 
 Partner 2
 Last name: Leone-Ganado, Samuel
-Student number: ?
+Student number: 300405286
 
 Description: This program contains the code for creation
  of a child process and attach a pipe to it.
@@ -19,9 +19,10 @@ Explanation of the zombie process
 
 	(please complete this part);
 
-	// Answer (TODO: fix!)
-	Zombie = process is hanging, i.e. a process is waiting for an operation to complete, but that operation is not completing/saying its complete,
-	resulting in the program being in this zombie state and using resources
+    A zombie process occurs when a child process has terminated, but its parent
+    has not yet collected the child's termination status (by calling wait or pipe
+    EOF). sleep(10) lets us observe the terminated children remaining as zombie 
+    processes until their parent terminates.
 
 ------------------------------------------------------------- */
 #include <stdio.h>
@@ -85,7 +86,7 @@ void createChildAndRead(int prcNum)
         sleep(5);
         printf("Process 1 ends\n");
         fflush(stdout);
-        // sleep(10);
+        //sleep(10);
         return;
     }
 
