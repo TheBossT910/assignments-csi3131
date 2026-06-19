@@ -9,87 +9,136 @@ Partner 2
 Last name: Leone-Ganado, Samuel
 Student number: 300405286
 
-Description: This program contains the code for [xyz]
+Description: This program contains the code for assignment 3, 
+covering POSIX threads, mutexes, and semaphores.
 ------------------------------------------------------------- */
 #include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <time.h>
 
-// Psuedo code
-queue students;
+#define MAX_CHAIRS 3
 
-// students program, and request help
-void student()
+sem_t sem_students;         // tells TA a student is waiting
+sem_t sem_ta;               // tells a student that the TA is ready
+pthread_mutex_t mutex;      // protect the students_waiting counter
+int students_waiting = 0;   // track students in hallway
+
+void* student(void* arg)
 {
-    while (true)
-    {
-        // student programming
-        int randNum = rand();
-        sleep(rand);
+    int id = *(int*)arg;
 
-        // student needing TA help
-        requestHelp();
-    }
-    return;
-}
-
-// TA sleeps, does one-on-one with students
-void teachingAssistant()
-{
-    while(true)
+    while (1)
     {
-        // trigger via semaphore
-        while (nobodyWaiting)
+        // student is programming
+        printf("Student %d is programming.\n", id);
+        // sleep for 1-5 seconds
+        sleep(rand() % 5 + 1);
+
+        // student needs help
+        pthread_mutex_lock(&mutex);
+
+        // CS, check chairs
+        if (students_waiting < MAX_CHAIRS)
         {
-            sleep();
+            // chair is available
+            students_waiting++;
+            printf("Student %d takes a seat waiting for the TA. (Students waiting: %d)\n", id, students_waiting);
+            
+            // notify the TA that a student has arrived
+            sem_post(&sem_students);
+            
+            // unlock CS
+            pthread_mutex_unlock(&mutex);
+
+            // wait for TA to be ready for one-on-one
+            sem_wait(&sem_ta);
+            printf("Student %d is now getting help from the TA.\n", id);
         }
-    
-        // one-on-one with student
-        semaphoreInc; // waiting room
-        student = pop();
-
-        mutex lock;
-        // critical section. TA helping students
-        int randNum = rand()
-            sleep(rand);
-        mutex unlock;
+        else
+        {
+            // no chairs available
+            printf("Student %d found no empty chairs and will try again later.\n", id);
+            // unlock CS
+            pthread_mutex_unlock(&mutex);
+        }
     }
+    return NULL;
 }
 
-// students perform the action of requesting help
-void requestHelp()
+void* teachingAssistant(void* arg)
 {
-    if (semaphoreHasSpace)
+    while (1)
     {
-        semaphoreDec;
-        push(student);
-        teachingAssistant();
-    }
+        // TA waits for a student to arrive
+        sem_wait(&sem_students);
 
-    // return programming either after done with TA, or no space
-    return;
+        // student has arrived, lock CS to modify the waiting count
+        pthread_mutex_lock(&mutex);
+
+        // student leaves the waiting room chair to enter the office
+        students_waiting--;
+        printf("TA is ready and calls a student into the office. (Students waiting: %d)\n", students_waiting);
+        sem_post(&sem_ta);
+
+        // unlock CS
+        pthread_mutex_unlock(&mutex);
+
+        // TA is helping the student
+        printf("TA is currently helping a student.\n");
+        // sleep for 1-3 seconds (help)
+        sleep(rand() % 3 + 1);
+    }
+    return NULL;
 }
 
-// actually run the program
 int main(int ac, char **av)
 {
-    int processNumber;
-
+    int num_students;
     if (ac == 2)
     {
-        if (sscanf(av[1], "%d", &processNumber) == 1)
+        if (sscanf(av[1], "%d", &num_students) == 1 && num_students > 0)
         {
-            // create TA thread
-            makeTAThread();
+            srand(time(NULL));
 
-            // create n amount of children threads
-            for (x, y, z)
+            // init mutex/semaphores
+            pthread_mutex_init(&mutex, NULL);
+            sem_init(&sem_students, 0, 0);
+            sem_init(&sem_ta, 0, 0);
+
+            pthread_t ta_tid;
+            pthread_t student_tids[num_students];
+            int student_ids[num_students];
+
+            printf("Creating TA thread\n");
+            pthread_create(&ta_tid, NULL, teachingAssistant, NULL);
+
+            // create n student threads
+            printf("Creating %d student threads\n", num_students);
+            for (int i = 0; i < num_students; i++)
             {
-                makeChildThread()
+                student_ids[i] = i + 1;
+                pthread_create(&student_tids[i], NULL, student, &student_ids[i]);
+            }
+
+            // join threads
+            pthread_join(ta_tid, NULL);
+            for (int i = 0; i < num_students; i++)
+            {
+                pthread_join(student_tids[i], NULL);
             }
         }
         else
-            fprintf(stderr, "Cannot translate argument\n");
+        {
+            fprintf(stderr, "Please provide a valid positive integer for the number of students.\n");
+        }
     }
     else
-        fprintf(stderr, "Invalid arguments\n");
-    return (0);
+    {
+        fprintf(stderr, "Usage: %s <number_of_students>\n", av[0]);
+    }
+    
+    return 0;
 }
